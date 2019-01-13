@@ -1,6 +1,6 @@
 # Time Series Analysis - DEs/UEM #
 
-> Repository containing the exercise lists and the final work developed for the course of Time Series Analysis in the second semester of 2017 at [DEs/UEM](http://www.des.uem.br/) minister by professor [Eniuce Menezes de Souza](http://buscatextual.cnpq.br/buscatextual/visualizacv.do?metodo=apresentar&id=K4777908H6).
+> Repository containing the exercise lists and the final work developed for the course of Time Series Analysis in the second semester of 2017 taught by by professor [Eniuce Menezes de Souza](http://buscatextual.cnpq.br/buscatextual/visualizacv.do?metodo=apresentar&id=K4777908H6) at [DEs/UEM](http://www.des.uem.br/). 
 
 ## Exercises
 ***
