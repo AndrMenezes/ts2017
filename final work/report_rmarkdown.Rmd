@@ -1,6 +1,6 @@
 ---
-title: "Trabalho S. Temporais"
-author: "Wesley Furriel"
+title: "Análise das séries temporais de estações GPS presentes na região Norte e Leste do Brasil"
+author: "Wesley O. Furriel and André Felipe B. Menezes"
 date: "14 de novembro de 2017"
 output:
   pdf_document:
