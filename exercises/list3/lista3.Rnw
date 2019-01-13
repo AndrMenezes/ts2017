@@ -1,0 +1,161 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage{amssymb,geometry,graphicx,setspace,amsmath,float,latexsym,amsmath,subfigure, scalefnt, verbatim, lineno, bm, multirow, listings}
+
+\geometry{a4paper,nohead,left=2.0cm,right=2.0cm,bottom=2.5cm,top=2.5cm}
+
+\usepackage[T1]{fontenc}		
+\usepackage[latin1]{inputenc}
+%\usepackage[brazil]{babel}		
+\usepackage{lmodern}
+
+\usepackage[hidelinks]{hyperref}
+\usepackage[round,sort]{natbib}
+
+\lstset{breaklines=true}
+<<setup, include=FALSE>>=
+library(knitr)
+options(digits = 4, continue = "+ ", OutDec = ',')
+opts_chunk$set(prompt=TRUE, fig.align = 'center', fig.width = 8, fig.height = 6, fig.pos = 'H')
+@
+
+\begin{document}
+
+\onehalfspacing
+
+\begin{center}
+\textbf{\Large Lista 3: Séries Temporais}\\[0.4cm]
+Andr\'e Felipe Berdusco Menezes \\[0.05cm]
+Profa: Dra. Eniuce Menezes \\[0.2cm]
+Departamento de Estatística, Universidade Estadual de Maring\'a\\[1pt]
+Maring\'a, PR, Brazil\\[0.5 cm]
+\end{center}
+
+
+\begin{enumerate}
+\item 
+\begin{enumerate}
+\item
+Usando o comando abaixo temos uma representação gráfica de uma série temporal estacionária.
+<<ex11, fig.cap="Série temporal estacionária">>=
+x1 <- c(1.6, 0.8, 1.2, 0.5, 0.9, 1.1, 1.1, 0.6, 1.5, 0.8, 0.9, 
+   1.2, 0.5, 1.3, 0.8, 1.2)
+par(mar = c(3.0, 3.0, 1.0, 1.0), cex = 1.4)
+plot(ts(x1), xlab = '', ylab = '')
+@
+
+\item 
+Pelo gráfico exibido abaixo podemos notar que a correlação entre as observações no lag 1 é negativa.
+<<ex1b, fig.cap="Gráfico de $x_t$ versus $x_{t+1}$">>=
+n <- length(x1)
+par(mar = c(3.0, 3.0, 1.0, 1.0), cex = 1.4)
+plot(x1[1:(n-1)], x1[2:n], xlab = '', ylab = '')
+mtext(side = 1, text = expression(x[t]), cex = 1.4, line = 2.1)
+mtext(side = 2, text = expression(x[t+1]), cex = 1.4, line = 2.1)
+abline(lsfit(x1[1:(n-1)], x1[2:n]), lty = 2)
+@
+
+
+\item 
+A função implmentada calcula a correlação entre as observações para um lag $k$. Para determinar $r_1$ basta 
+atribuir $k = 1$. Como o gráfico exibiu a autocorrelação no lag 1 é negativa sendo de -0.5625.
+<<ex1c, fig.cap="Gráfico de $x_t$ versus $x_{t+1}$">>=
+rk <- function(x, k)
+{
+  n    <- length(x)
+  xbar <- mean(x)
+  xt   <- x[1:(n-k)]
+  xt_1 <- x[(k+1):n]
+  corr  <- sum((xt - xbar) * (xt_1 - xbar)) / sum((xt - xbar)^2)
+  return(corr)
+}
+rk(x = x1, k = 1)
+@
+
+\end{enumerate}
+
+\item 
+\begin{enumerate}
+\item 
+Série completamente aleatórias implicam em autocorrelações próximas de zero.
+
+<<ex2a, fig.cap='Série com observações i.i.d. da distribuição $N(0,1)$', fig.width=10, fig.height=5>>=
+seed <- 23092017
+n    <- 200
+
+set.seed(seed)
+xt  <- ts(rnorm(n, mean = 0, sd = 1))
+par(mfrow = c(1, 2), mar = c(4.8, 4.8, 0.2, 0.2), cex = 1.4)
+plot(xt, xlab = 'Tempo'); acf(xt, xlab = 'Defasagem (lag)')
+@
+
+\item 
+Série com tendência estocástica implica em autocorrelações positivos, a medida que a defasagem aumenta a autocorrelação decresce.
+
+<<ex2b, fig.cap='Série com tendência estocástica, $x_t = x_{t-1} + \\epsilon_t$ com $\\epsilon_t \\sim N(0, 0.1^2)$', fig.width=10, fig.height=5>>=
+set.seed(seed)
+xt  <- ts(cumsum(rnorm(n, mean = 0, sd = 0.1)))
+par(mfrow = c(1, 2), mar = c(4.8, 4.8, 0.2, 0.2), cex = 1.4)
+plot(xt, xlab = 'Tempo'); acf(xt, xlab = 'Defasagem (lag)')
+@
+
+\item 
+Série com tendência aleatória implica em autocorrelações positivos, a medida que a defasagem aumenta a autocorrelação decresce.
+Maior variância maior a autocorrelação.
+
+<<ex2c, fig.cap='Série com tendência estocástica, $x_t = x_{t-1} + \\epsilon_t$ com $\\epsilon_t \\sim N(1, 5^2)$', fig.width=10, fig.height=5>>=
+set.seed(seed)
+xt  <- ts(cumsum(rnorm(n, mean = 1, sd = 5)))
+par(mfrow = c(1, 2), mar = c(4.8, 4.8, 0.2, 0.2), cex = 1.4)
+plot(xt, xlab = 'Tempo'); acf(xt, xlab = 'Defasagem (lag)')
+@
+
+\item 
+Em uma série com correlação de curto prazo temos que a medida que a defasagem aumenta a autocorrelação decresce.
+
+<<ex2d, fig.cap='Série com correlações de curto prazo, $x_t = 0.7\\,x_{t-1} + \\epsilon_t$ com $\\epsilon_t \\sim N(0, 1)$', fig.width=10, fig.height=5>>=
+set.seed(seed)
+xt  <- arima.sim(n = n, list(ar = 0.7))
+par(mfrow = c(1, 2), mar = c(4.8, 4.8, 0.2, 0.2), cex = 1.4)
+plot(xt, xlab = 'Tempo'); acf(xt, xlab = 'Defasagem (lag)')
+@
+
+\item 
+Gráfico da série exibe fortes oscilações. A autocorrelação oscila positivamente para defasagens pares e negativamente para defasagens ímpares.
+Ou seja, a autocorrelação possui comoportamento sazonal.
+
+<<ex2e, fig.cap='Série com correlações negativa, $x_t = -0.8\\,x_{t-1} + \\epsilon_t$ com $\\epsilon_t \\sim N(0, 1)$', fig.width=10, fig.height=5>>=
+set.seed(seed)
+xt  <- arima.sim(n = n, list(ar = -0.8))
+par(mfrow = c(1, 2), mar = c(4.8, 4.8, 0.2, 0.2), cex = 1.4)
+plot(xt, xlab = 'Tempo'); acf(xt, xlab = 'Defasagem (lag)')
+@
+
+\item 
+Gráfico da série aparenta ser aleatório, mas com forte ocilações em torno da média.
+A autocorrelação é positiva para a primeira defasagem, se torna negativa para defagens próximas de 10, no entanto sempre
+próxima de zero para defasagens maiores que 1. 
+
+<<ex2f, fig.cap='Série de médias móveis, $x_t = \\epsilon_t + 0.6\\,\\epsilon_{t-1}$ com $\\epsilon_t \\sim N(0, 1)$', fig.width=10, fig.height=5>>=
+set.seed(seed)
+xt  <- arima.sim(n = n, list(ma = 0.6))
+par(mfrow = c(1, 2), mar = c(4.8, 4.8, 0.2, 0.2), cex = 1.4)
+plot(xt, xlab = 'Tempo'); acf(xt, xlab = 'Defasagem (lag)')
+@
+\end{enumerate}
+
+\item 
+Como os 10 primeiros coeficientes de autocorrelação amostral são próximos de zero
+têm-se evidência de uma série independente e identicamente distribuída, ou seja, 
+não existe influência de observações medidas em instantes próximos. 
+Sabemos que uma série estacionária apresenta a mesma distribuição de probabilidade
+ao longo do tempo, então conclui-se que a série é estacionária.
+
+
+
+
+\end{enumerate}
+
+
+
+\end{document}
