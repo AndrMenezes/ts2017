@@ -1,0 +1,311 @@
+---
+title: "Trabalho S. Temporais"
+author: "Wesley Furriel"
+date: "14 de novembro de 2017"
+output:
+  pdf_document:
+    fig_caption: yes
+    keep_tex: yes
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+library(astsa)
+library(pracma)
+library(forecast)
+library(lmtest)
+library(zoo)
+library(tseries)
+library(tsoutliers)
+library(fpp)
+library(rts)
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(grid)
+library(plyr)
+knitr::opts_chunk$set(echo = TRUE)
+FF <- function(x,Digits=4,Width=4){(formatC(x,digits=Digits,width=Width,format="f"))}
+source("C:/Users/User/Dropbox/4° Série/Séries Temporais/Seminário/R/my_ggstplot.R")
+# source("D:/Estatística/Séries Temporais/Trabalho/Rmark/my_ggstplot.R")
+
+# Função para medidas de comparação --------------
+medidas <- function(yt, obs, pred)
+{
+  n    <- length(yt)
+  et   <- pred - obs
+  qt   <- et / (sum(abs(diff(yt))) / (n - 1))
+  MSE  <- mean(et^2)
+  RMSE <- sqrt(MSE)
+  MAE  <- mean(abs(et))
+  MdAE <- median(abs(et))
+  MASE <- mean(abs(qt))
+  df   <- data.frame(RMSE = RMSE, MAE = MAE, MdAE = MdAE, MASE = MASE)
+  return(df)
+}
+```
+
+```{r dados, echo=FALSE,include=FALSE}
+# bd <- "D:/Estatística/Séries Temporais/Trabalho/DADOS"
+bd <- "C:/Users/User/Dropbox/4° Série/Séries Temporais/Seminário/DADOS"
+setwd(bd)
+
+# Importando os dados ---------------------------------
+
+files   <- list.files()
+id      <- match(c('NAUS.txt', 'POVE.txt', 'ROJI.txt', 'MAPA.txt', 'SALU.txt', 'BRFT.txt', 'RECF.txt', 'SAVO.txt'), files)
+files   <- files[id]
+seriesE <- readRDS("seriesE.rds")
+seriesN <- readRDS("seriesN.rds")
+obsE    <- readRDS("obsE.rds")
+obsN    <- readRDS("obsN.rds")
+```
+
+
+```{r east, echo=FALSE, fig.height = 5, fig.width = 10, results="asis", warning=FALSE}
+## AJUSTES COMPONENTES EAST -------------------------------------------
+
+aux1<-list()
+ranques.total1 <- list()
+d1<-c(1,1,1,1,1,1,1,1)
+d2<-c(1,1,1,1,1,1,1,1)
+p1<-c(0,0,2,0,0,0,0,0)
+p2<-c(1,1,4,1,1,0,0,2)
+q1<-c(1,1,1,1,1,1,1,1)
+q2<-c(1,1,3,1,1,2,2,1)
+for(i in 1:length(seriesE))
+{
+  cat(paste0("\n\\subsection{EAST ",substr(files[i],1,nchar(files[i])-4),"}"))
+  # Substituindo outliers e Gerando os gráficos iniciais EAST  ---------------------------------
+  ggtsdisplay(seriesE[[i]], lag.max = 25, main = "", smooth = T)
+  cat("\\captionof{figure}{Gráficos da série temporal observada, FAC e FACP.}", "\n")
+
+  # Gerando os gráficos diff EAST  ---------------------------------
+  aux1[[i]]<-diff(seriesE[[i]])
+  ggtsdisplay(aux1[[i]],lag.max = 25, main = "")
+  cat("\\captionof{figure}{Gráficos da série temporal diferenciada, FAC e FACP.}", "\n")
+
+  # Estimando os modelos ------------------------------------
+  result1<-Arima(seriesE[[i]], order=c(p1[i],d1[i],q1[i]), include.constant = T)
+  result2<-Arima(seriesE[[i]], order=c(p2[i],d2[i],q2[i]), include.constant = T)
+  
+  # Estatísticas de ajuste  ---------------------------------
+  box1<-Box.test(result1$residuals,lag=10, fitdf=0, type="Lj")
+  box2<-Box.test(result2$residuals,lag=10, fitdf=0, type="Lj")
+  norm1<-jarque.bera.test(result1$residuals)
+  norm2<-jarque.bera.test(result2$residuals)
+  name1<-paste0("ARIMA(",p1[i],",",d1[i],",",q1[i],")")
+  name2<-paste0("ARIMA(",p2[i],",",d2[i],",",q2[i],")")
+  
+  # TRV if ---------------------------------
+  lltest   <- lrtest(result1,result2)
+  pvalue   <- lltest$`Pr(>Chisq)`[2]
+  ifelse(pvalue < 0.05, result <- result2, result <- result1)
+  
+  # Tabela estatísticas de ajuste  ---------------------------------
+  tabela <- cbind(c(name1,name2), FF(c(norm1$p.value,norm2$p.value)),FF(c(box1$p.value,box2$p.value)),
+                  FF(c(result1$aicc,result2$aicc)), c(FF(pvalue), ""))
+  
+  tabela[, -1] <- ifelse(tabela[, -1] == "0.0000", "<0.0000", tabela[, -1])
+  colnames(tabela) <- c("Modelo","J.Bera valor-p","Lj.Box valor-p","AICc", "TRV")
+  rownames(tabela) <- NULL
+  
+  cat("\n")
+    print(kable(tabela, align = "c",caption = "Discriminação entre os modelos considerados."), format = "markdown")
+  cat("\n")
+  
+  # Tabela estimativas modelo selecionado  ---------------------------------
+  npar     <- length(result$coef)    
+  est      <- FF(result$coef, 4)[-npar]
+  ep       <- FF(sqrt(diag(result$var.coef)), 4)[-npar]
+  ic       <- FF(unname(confint(result), 4))[-npar, ]
+  par      <- names(est)[-npar]
+  ma <- grep(pattern = 'ma', par)
+    if(sum(ma) != 0) par[ma] <- paste0("$\\theta_", 1:length(ma), "$")
+  ar <- grep(pattern = 'ar', par)
+    if(sum(ar) != 0) par[ar] <- paste0("$\\phi_", 1:length(ar), "$")
+  if(npar == 2) {M <- cbind(par, est, ep, ic[1], ic[2])}
+  if(npar > 2)  {M <- cbind(par, est, ep, ic[, 1], ic[, 2])}
+  colnames(M) <- c("Parâmetro", "Est.", "E.P.", "I.C. 2.5%","I.C 97.5%")
+  rownames(M) <- NULL
+  
+  # Impressão tabela estimativas ---------------------------------
+  cat("\n")
+    print(kable(M, align = "c",caption = "Resumos inferências do modelo selecionado."), format = "markdown")
+  cat("\n")
+  
+  # Resíduos ----------------------------------------------
+  my_ggstplot(residuals(result), lag.max = 25, plot.type = "qqplot", main = "") 
+  cat("\\captionof{figure}{Gráficos dos resíduos para o modelo ajustado.}", "\n")
+
+  # Modelo SE e previsão das 6 próximas observações -------------
+  fitARIMA  <- result
+  prevARIMA <- forecast(fitARIMA, h = 24)
+  nameARIMA <- ifelse(pvalue < 0.05, name2, name1)
+  fitSE     <- HoltWinters(x = seriesE[[i]], gamma = FALSE)
+  prevSE    <- forecast(fitSE, h = 24)
+  nameSE    <- paste0("SE(a = ", FF(fitSE$alpha, 3), ", b = ", FF(fitSE$beta, 3), ")")
+  
+  par(mfrow = c(1, 2), mar = c(3.0, 3.0, 1.0, 1.0), cex = 1.2)
+  plot(prevARIMA, lwd = 2, main = nameARIMA, xlab = "", ylab = "", 
+       panel.first = c(abline(h = 0.5, lwd=1500000, col = "gray95")),yaxt="n",xaxt="n",bty = "l")
+  axis(1,cex.axis=0.8);axis(2,cex.axis=0.8,las=2)
+  grid(col="white",lwd=1.5,lty = 1)
+  lines(fitted(fitARIMA), col = "red", lwd = 2)
+  plot(prevSE, lwd = 2, main = nameSE, xlab = "", ylab = "", 
+       panel.first = c(abline(h = 0.5, lwd=1500000, col = "gray95")),yaxt="n",xaxt="n",bty = "l")
+  axis(1,cex.axis=0.8);axis(2,cex.axis=0.8,las=2)
+  grid(col="white",lwd=1.5,lty = 1)
+  lines(fitted(prevSE), col = "red", lwd = 2)
+  cat("\\captionof{figure}{Modelos ajustados e previsões considerando ARIMA e SE.}", "\n")
+  
+  # Comparando previsões ----------------
+  medidas.ARIMA <- medidas(yt = seriesE[[i]], obs = obsE[[i]], pred = prevARIMA$mean)
+  medidas.SE    <- medidas(yt = seriesE[[i]], obs = obsE[[i]], pred = prevSE$mean)
+  df            <- cbind(model = c("ARIMA", "SE"), rbind(medidas.ARIMA, medidas.SE))
+  df            <- df %>% gather(key = medida, value = value, -c(model))
+  gg            <- ggplot(data = df, aes(x = model, y = value, fill = model)) +
+    geom_bar(stat = "identity", position = "dodge", width = 0.8) +
+    labs(x = "", y = "", fill = "Modelo") +
+    facet_wrap(~medida, scales = "free") +
+    scale_fill_manual(values = c("#333399", "#339966")) +
+    theme(text             = element_text(size = 14),
+          panel.grid.major = element_line(size = 1.2),
+          panel.grid.minor = element_blank(),
+          axis.title.x     = element_blank(),
+          axis.text.x      = element_blank(),
+          axis.ticks.x     = element_blank())
+  print(gg)
+  cat("\\captionof{figure}{Medidas para comparação das previsões.}", "\n")
+
+  cat("\n\\newpage\n")
+ 
+  ranques <- ldply(lapply(split(df$value, df$medida), rank))
+  ranques.total1[[i]] <- colSums(ranques[, -1])
+}
+```
+
+
+```{r north, echo=FALSE,fig.height = 5, fig.width = 10, results="asis", warning=FALSE}
+## AJUSTES COMPONENTES NORTH -------------------------------------------
+ranques.total2 <- list()
+aux2<-list()
+d1<-c(1,1,1,1,1,1,1,1)
+d2<-c(1,1,1,1,1,1,1,1)
+p1<-c(0,0,0,0,0,0,0,0)
+p2<-c(1,0,0,1,1,0,0,2)
+q1<-c(1,1,1,1,1,1,1,1)
+q2<-c(1,2,2,1,1,2,2,1)
+for(i in 1:length(seriesN))
+{ 
+  cat(paste0("\n\\subsection{NORTH ",substr(files[i],1,nchar(files[i])-4),"}"))
+  
+  # Gerando os gr?ficos iniciais NORTH  ---------------------------------
+  ggtsdisplay((seriesN[[i]]), lag.max = 25, main = "",smooth = T)
+  cat("\\captionof{figure}{Gráficos da série temporal observada, FAC e FACP.}", "\n")
+
+  
+  # Gráficos para série diff ------------------
+  
+  aux2[[i]]<-diff(seriesN[[i]])
+  ggtsdisplay(aux2[[i]], lag.max = 15, main = "")
+  cat("\\captionof{figure}{Gráficos da série temporal diferenciada, FAC e FACP.}", "\n")
+  
+  result1<-Arima(seriesN[[i]], order=c(p1[i],d1[i],q1[i]), include.constant = T)
+  result2<-Arima(seriesN[[i]], order=c(p2[i],d2[i],q2[i]), include.constant = T)
+  
+  # Estatísticas de ajuste  ---------------------------------
+  box1<-Box.test(result1$residuals,lag=10, fitdf=0, type="Lj")
+  box2<-Box.test(result2$residuals,lag=10, fitdf=0, type="Lj")
+  norm1<-jarque.bera.test(result1$residuals)
+  norm2<-jarque.bera.test(result2$residuals)
+  name1<-paste0("ARIMA(",p1[i],",",d1[i],",",q1[i],")")
+  name2<-paste0("ARIMA(",p2[i],",",d2[i],",",q2[i],")")
+  
+  # TRV if ---------------------------------
+  lltest   <- lrtest(result1,result2)
+  pvalue   <- lltest$`Pr(>Chisq)`[2]
+  ifelse(pvalue < 0.05, result <- result2, result <- result1)
+  
+  # Tabela estatísticas de ajuste  ---------------------------------
+  tabela <- cbind(c(name1,name2), FF(c(norm1$p.value,norm2$p.value)),FF(c(box1$p.value,box2$p.value)),
+                  FF(c(result1$aicc,result2$aicc)), c(FF(pvalue), ""))
+  tabela[, -1] <- ifelse(tabela[, -1] == "0.0000", "<0.0000", tabela[, -1])
+  colnames(tabela) <- c("Modelo","J.Bera valor-p","Lj.Box valor-p","AICc", "TRV")
+  rownames(tabela) <- NULL
+  
+  cat("\n")
+    print(kable(tabela, align = "c",caption = "Discriminação entre os modelos considerados."), format = "markdown")
+  cat("\n")
+  
+  # Tabela estimativas modelo selecionado  ---------------------------------
+  npar     <- length(result$coef)    
+  est      <- FF(result$coef, 4)[-npar]
+  ep       <- FF(sqrt(diag(result$var.coef)), 4)[-npar]
+  ic       <- FF(unname(confint(result), 4))[-npar, ]
+  par      <- names(est)[-npar]
+  ma <- grep(pattern = 'ma', par)
+    if(sum(ma) != 0) par[ma] <- paste0("$\\theta_", 1:length(ma), "$")
+  ar <- grep(pattern = 'ar', par)
+    if(sum(ar) != 0) par[ar] <- paste0("$\\phi_", 1:length(ar), "$")
+  if(npar == 2) {M <- cbind(par, est, ep, ic[1], ic[2])}
+  if(npar > 2)  {M <- cbind(par, est, ep, ic[, 1], ic[, 2])}
+  colnames(M) <- c("Parâmetro", "Est.", "E.P.", "I.C. 2.5%","I.C 97.5%")
+  rownames(M) <- NULL
+  
+  # Impressão tabela estimativas ---------------------------------
+  cat("\n")
+    print(kable(M,digits = 4, align = "c",caption = "Resumos inferências do modelo selecionado."), format = "markdown")
+  cat("\n")
+  
+  # Resíduos ---------------------------------------------
+  my_ggstplot(residuals(result), lag.max = 25, plot.type = "qqplot", main = "")
+  cat("\\captionof{figure}{Gráficos dos resíduos para o modelo ajustado.}", "\n")
+  
+  # Modelo SE e previsão das 6 próximas observações -------------
+  fitARIMA  <- result
+  prevARIMA <- forecast(fitARIMA, h = 24, include.constant = T)
+  nameARIMA <- ifelse(pvalue < 0.05, name2, name1)
+  fitSE     <- HoltWinters(x = seriesN[[i]], gamma = FALSE)
+  prevSE    <- forecast(fitSE, h = 24)
+  nameSE    <- paste0("SE(a = ", FF(fitSE$alpha, 3), ", b = ", FF(fitSE$beta, 3), ")")
+  
+  par(mfrow = c(1, 2), mar = c(3.0, 3.0, 1.0, 1.0), cex = 1.2)
+  plot(prevARIMA, lwd = 2, main = nameARIMA, xlab = "", ylab = "", 
+       panel.first = c(abline(h = 0.5, lwd=1500000, col = "gray95")),yaxt="n",xaxt="n",bty = "l")
+  axis(1,at = seq(2008, 2018, by = 2), cex.axis=0.8);axis(2,cex.axis=0.8,las=2)
+  grid(col="white",lwd=1.5,lty = 1)
+  lines(fitted(fitARIMA), col = "red", lwd = 2)
+  plot(prevSE, lwd = 2, main = nameSE, xlab = "", ylab = "", 
+       panel.first = c(abline(h = 0.5, lwd=1500000, col = "gray95")),yaxt="n",xaxt="n",bty = "l")
+    axis(1,cex.axis=0.8);axis(2,cex.axis=0.8,las=2)
+  grid(col="white",lwd=1.5,lty = 1)
+  lines(fitted(prevSE), col = "red", lwd = 2)
+  cat("\\captionof{figure}{Modelos ajustados e previsões considerando ARIMA e SE.}", "\n")
+
+  # Comparando previsões ----------------
+  medidas.ARIMA <- medidas(yt = seriesN[[i]], obs = obsN[[i]], pred = prevARIMA$mean)
+  medidas.SE    <- medidas(yt = seriesN[[i]], obs = obsN[[i]], pred = prevSE$mean)
+  df            <- cbind(model = c("ARIMA", "SE"), rbind(medidas.ARIMA, medidas.SE))
+  df            <- df %>% gather(key = medida, value = value, -c(model))
+  gg            <- ggplot(data = df, aes(x = model, y = value, fill = model)) +
+    geom_bar(stat = "identity", position = "dodge", width = 0.8) +
+    labs(x = "", y = "", fill = "Modelo") +
+    facet_wrap(~medida, scales = "free") +
+    scale_fill_manual(values = c("#333399", "#339966")) +
+    theme(text             = element_text(size = 14),
+          panel.grid.major = element_line(size = 1.2),
+          panel.grid.minor = element_blank(),
+          axis.title.x     = element_blank(),
+          axis.text.x      = element_blank(),
+          axis.ticks.x     = element_blank())
+    print(gg)
+    cat("\\captionof{figure}{Medidas para comparação das previsões.}", "\n")
+    
+    cat("\n \\newpage\n")
+    
+    ranques <- ldply(lapply(split(df$value, df$medida), rank))
+    ranques.total2[[i]] <- colSums(ranques[, -1])
+}
+```
