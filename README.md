@@ -16,9 +16,9 @@
 The present work aims to employ the autoregressive integrated moving-average (ARIMA) moels introduced by [Box and Jenkins (1976)](https://www.wiley.com/en-us/Time+Series+Analysis%3A+Forecasting+and+Control%2C+5th+Edition-p-9781118674918) to analyze the temporal series of coordinates from the processing of data collected by GNSS (Global Navigation Satellite System) receivers, especially the GPS (Global Positioning System). The analyzed data refer to the weekly average during the period of 2008 and 2017. We considered the EAST and NORTH components of the stations localized at North and Amazon regions of Brazil, which the acronym are POVE, ROJI, MAPA, SALU, BRFT, RECF and SAV. Thus, 16 temporal series were analyzed in this work.
 
 ***
-> [Report](https://github.com/AndrMenezes/ts2017/raw/master/final_work/report.pdf)
+> [Report](https://github.com/AndrMenezes/ts2017/blob/master/final%20work/report.pdf)
 
-> [Presentation](https://github.com/AndrMenezes/ts2017/raw/master/final_work/presentation.pdf)
+> [Presentation](https://github.com/AndrMenezes/ts2017/raw/master/final%20work/presentation.pdf)
 
-> [R script](https://github.com/AndrMenezes/ts2017/raw/master/final_work/report_rmarkdown.pdf)
+> [R script](https://github.com/AndrMenezes/ts2017/blob/master/final%20work/report_rmarkdown.Rmd)
 ***
